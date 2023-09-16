@@ -7,5 +7,5 @@ pandas==1.3.5
 scikit_learn==1.0.2
 streamlit==1.23.1
 yfinance==0.2.22
-tensorflow==2.13.0
+tensorflow==2.11.0
 protobuf==3.20.0
