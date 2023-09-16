@@ -9,6 +9,7 @@ from keras.models import load_model
 import streamlit as st  
 from sentiment import Newsanalysis
 
+news = Newsanalysis()
 
 
 st.set_page_config(
@@ -27,7 +28,6 @@ user_input = st.text_input("Enter Stock Ticker", "WIT")
 
 ############################# news data #########################
 
-news = Newsanalysis()
 news.newsa(user_input)
 
 st.subheader("🤔 Sentiment Analysys")
