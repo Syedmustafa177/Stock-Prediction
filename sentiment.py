@@ -26,7 +26,7 @@ class Newsanalysis:
             print(f"HTTP Error: {e.code} - {e.reason}")
             return "🙇 Could'nt fetch NEWS data for this STOCK."
 
-        html = BeautifulSoup(response, "lxml")
+        html = BeautifulSoup(response, "html5lib")
         news_table = html.find(id="news-table")
         news_tables[user_input] = news_table
 
