@@ -85,7 +85,7 @@ class Newsanalysis:
 
 
 # news = Newsanalysis()
-# user_input = "TATASTEEL.NS"
+user_input = "WIT"
 # result = news.newsa(user_input)
 # if result is not None:
 #     print(result)
