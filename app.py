@@ -2,7 +2,9 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 import yfinance as yf
+from datetime import date
 from sklearn.preprocessing import MinMaxScaler
+from sklearn.metrics import mean_absolute_error, mean_squared_error
 from keras.layers import Dense, Dropout, LSTM
 from keras.models import Sequential
 from keras.models import load_model
@@ -20,7 +22,7 @@ st.set_page_config(
 st.title("💹 Stock Trend Prediction")
 
 start = '2010-01-01'
-end = st.text_input("📅 Enter Current Date", '2023-07-29')
+end = st.text_input("📅 Enter Current Date", str(date.today()))
 
 user_input = st.text_input("Enter Stock Ticker", "WIT")
 
@@ -127,22 +129,30 @@ st.write(df.describe())
 st.subheader("💸 Closing Price VS Time Chart")
 fig = plt.figure(figsize=(12, 6))
 plt.plot(df.Close)
+plt.xlabel('Date')
+plt.ylabel('Price (USD)')
 st.pyplot(fig)
 
 st.subheader("💸 Closing Price VS Time Chart with MA 100")
 ma100 = df.Close.rolling(100).mean()
 fig = plt.figure(figsize=(12, 6))
-plt.plot(ma100, "r")
-plt.plot(df.Close)
+plt.plot(ma100, "r", label="MA 100")
+plt.plot(df.Close, label="Close Price")
+plt.xlabel('Date')
+plt.ylabel('Price (USD)')
+plt.legend()
 st.pyplot(fig)
 
 st.subheader("💸 Closing Price VS Time Chart with MA100 & MA200")
 ma100 = df.Close.rolling(100).mean()
 ma200 = df.Close.rolling(200).mean()
 fig = plt.figure(figsize=(12, 6))
-plt.plot(ma100, "r")
-plt.plot(ma200, "g")
-plt.plot(df.Close, "b")
+plt.plot(ma100, "r", label="MA 100")
+plt.plot(ma200, "g", label="MA 200")
+plt.plot(df.Close, "b", label="Close Price")
+plt.xlabel('Date')
+plt.ylabel('Price (USD)')
+plt.legend()
 st.pyplot(fig)
 
 data_training = pd.DataFrame(df["Close"][0:int(len(df) * 0.70)])
@@ -154,11 +164,17 @@ data_traning_array = scaler.fit_transform(data_training)
 # ─────────────────────────────────────────────
 # LSTM Model Predictions
 # ─────────────────────────────────────────────
+if len(df) < 200:
+    st.warning("⚠️ Not enough historical data to run predictions. Try a stock with more history.")
+    st.stop()
+
 model = load_model('keras.model.h5')
 
 past_100_days = data_training.tail(100)
-final_df = past_100_days.append(data_testing, ignore_index=True)
-input_data = scaler.fit_transform(final_df)
+# Fix: use pd.concat (DataFrame.append was removed in pandas 2.0)
+final_df = pd.concat([past_100_days, data_testing], ignore_index=True)
+# Fix: use transform (not fit_transform) to avoid data leakage on test set
+input_data = scaler.transform(final_df)
 
 x_test = []
 y_test = []
@@ -171,46 +187,41 @@ x_test, y_test = np.array(x_test), np.array(y_test)
 
 y_predicted = model.predict(x_test)
 
-scaler = scaler.scale_
-scale_factor = 1 / scaler[0]
-y_predicted = y_predicted * scale_factor
-y_test = y_test * scale_factor
+# Fix: use inverse_transform for correct absolute prices (previous code omitted data_min)
+y_predicted = scaler.inverse_transform(y_predicted).flatten()
+y_test = scaler.inverse_transform(y_test.reshape(-1, 1)).flatten()
 
 st.subheader("🤓 Predictions VS Original")
 fig2 = plt.figure(figsize=(12, 6))
 plt.plot(y_test, "b", label="Original Price")
 plt.plot(y_predicted, "r", label="Predicted Price")
 plt.xlabel('Time')
-plt.ylabel('Price')
+plt.ylabel('Price (USD)')
 plt.legend()
 st.pyplot(fig2)
 
+# ─────────────────────────────────────────────
+# Prediction Accuracy Metrics
+# ─────────────────────────────────────────────
+mae = mean_absolute_error(y_test, y_predicted)
+rmse = mean_squared_error(y_test, y_predicted) ** 0.5
+col_m1, col_m2 = st.columns(2)
+col_m1.metric("📉 Mean Absolute Error (MAE)", f"${mae:.2f}")
+col_m2.metric("📉 Root Mean Squared Error (RMSE)", f"${rmse:.2f}")
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+# ─────────────────────────────────────────────
+# Next Day Price Prediction
+# ─────────────────────────────────────────────
+st.subheader("🔮 Next Day Price Prediction")
+last_100 = df["Close"].tail(100).values.reshape(-1, 1)
+last_100_scaled = scaler.transform(last_100)
+x_future = np.array([last_100_scaled])
+next_pred = model.predict(x_future)
+next_price = scaler.inverse_transform(next_pred)[0][0]
+last_close = float(df["Close"].iloc[-1])
+delta = next_price - last_close
+st.metric(
+    "📈 Predicted Next Day Closing Price",
+    f"${next_price:.2f}",
+    delta=f"${delta:+.2f}",
+)
